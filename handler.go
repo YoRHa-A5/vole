@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -71,6 +72,18 @@ func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate URL scheme
+	if !isValidURLScheme(req.URL) {
+		writeError(w, http.StatusBadRequest, "invalid_url", "only http and https URLs are supported")
+		return
+	}
+
+	// Validate format
+	if req.Format != "" && req.Format != "markdown" {
+		writeError(w, http.StatusBadRequest, "unsupported_format", fmt.Sprintf("unsupported format: %s", req.Format))
+		return
+	}
+
 	result, err := h.client.extract(req.URL)
 	if err != nil {
 		detail := err.Error()
@@ -133,6 +146,15 @@ func (h *handler) parseGetRequest(r *http.Request) (*extractRequest, error) {
 		URL:    url,
 		Format: format,
 	}, nil
+}
+
+// isValidURLScheme checks if the URL uses http or https.
+func isValidURLScheme(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
 }
 
 // writeJSON writes a JSON response.

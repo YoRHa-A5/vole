@@ -384,3 +384,33 @@ func TestHandlerNotFound(t *testing.T) {
 		t.Errorf("expected status 404, got %d", rec.Code)
 	}
 }
+
+func TestHandlerInvalidURLScheme(t *testing.T) {
+	client := newTestClient()
+	h := newHandler(client)
+
+	req := httptest.NewRequest(http.MethodPost, "/extract", strings.NewReader(`{"url": "file:///etc/passwd"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", rec.Code)
+	}
+}
+
+func TestHandlerUnsupportedFormat(t *testing.T) {
+	client := newTestClient()
+	h := newHandler(client)
+
+	req := httptest.NewRequest(http.MethodPost, "/extract", strings.NewReader(`{"url": "http://example.com", "format": "html"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", rec.Code)
+	}
+}

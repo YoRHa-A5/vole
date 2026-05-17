@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,22 +42,36 @@ type extractClient struct {
 	httpClient  *http.Client
 	maxBodySize int64
 	userAgent   string
+	converter   *md.Converter
 }
 
-// newExtractClient creates a new HTTP client with configured timeouts.
+// newExtractClient creates a new HTTP client with configured timeouts and a reusable markdown converter.
 func newExtractClient(connectTimeout, readTimeout time.Duration, maxBodySize int64, userAgent string) *extractClient {
-	return &extractClient{
-		httpClient: &http.Client{
-			Timeout: readTimeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 10 {
-					return fmt.Errorf("too many redirects")
-				}
-				return nil
-			},
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: connectTimeout,
+		}).DialContext,
+		MaxIdleConns:        10,
+		IdleConnTimeout:     30 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	httpClient := &http.Client{
+		Transport: transport,
+		Timeout:   readTimeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
 		},
+	}
+	converter := md.NewConverter("", true, nil)
+	converter.Use(plugin.GitHubFlavored())
+	return &extractClient{
+		httpClient:  httpClient,
 		maxBodySize: maxBodySize,
 		userAgent:   userAgent,
+		converter:   converter,
 	}
 }
 
@@ -137,7 +152,7 @@ func (c *extractClient) extractHTML(rawURL string, body io.Reader, statusCode in
 			return &ExtractResult{
 				URL:              rawURL,
 				Title:            article.Title,
-				Description:      article.Excerpt,
+				Description:      metaDesc,
 				Content:          mdContent,
 				ContentType:      "text/markdown",
 				StatusCode:       statusCode,
@@ -212,16 +227,12 @@ func parseContentType(contentType string) string {
 	return "other"
 }
 
-// convertToMarkdown converts HTML string to Markdown.
+// convertToMarkdown converts HTML string to Markdown using the pre-initialized converter.
 func (c *extractClient) convertToMarkdown(htmlStr string) (string, error) {
-	conv := md.NewConverter("", true, nil)
-	conv.Use(plugin.GitHubFlavored())
-
-	markdown, err := conv.ConvertString(htmlStr)
+	markdown, err := c.converter.ConvertString(htmlStr)
 	if err != nil {
 		return "", err
 	}
-
 	return strings.TrimSpace(markdown), nil
 }
 

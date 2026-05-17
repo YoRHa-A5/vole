@@ -73,17 +73,22 @@ func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.client.extract(req.URL)
 	if err != nil {
-		// Internal errors (fetch failures, parse errors)
-		status := http.StatusInternalServerError
 		detail := err.Error()
 
-		// Check for fetch failures
+		// Fetch failures → 502
 		if strings.Contains(detail, "fetch failed") {
-			status = http.StatusBadGateway
-			detail = fmt.Sprintf("fetch_failed: %s", detail)
+			writeError(w, http.StatusBadGateway, "fetch_failed", detail)
+			return
 		}
 
-		writeError(w, status, "parse_error", detail)
+		// HTML parse errors → 500
+		if strings.Contains(detail, "failed to parse") {
+			writeError(w, http.StatusInternalServerError, "parse_error", detail)
+			return
+		}
+
+		// Everything else → 500
+		writeError(w, http.StatusInternalServerError, "parse_error", detail)
 		return
 	}
 

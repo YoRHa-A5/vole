@@ -55,7 +55,11 @@ GET /extract?url=https://example.com/article&format=markdown
 
 ## Configuration
 
-All via environment variables:
+Copy `.env.example` to `.env` and adjust the variables if needed:
+
+```bash
+cp .env.example .env
+```
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -64,6 +68,9 @@ All via environment variables:
 | `CONNECT_TIMEOUT` | `15s` | Max time to establish a connection |
 | `MAX_BODY_SIZE` | `10485760` | Max HTML body size in bytes (10 MB) |
 | `USER_AGENT` | `vole/1.0` | User-Agent sent with requests |
+
+
+Environment variables take precedence over `.env` values.
 
 ## Build
 
@@ -86,7 +93,7 @@ LISTEN_ADDR=:9090 READ_TIMEOUT=30s bin/vole
 ## Architecture
 
 ```
-  Client  ──HTTP──→  vole (VPS, :9090)
+  Client  ──HTTP──→  vole (Server, :9090)
   ←───────────  Markdown
                           │
                    Target URL (Internet)

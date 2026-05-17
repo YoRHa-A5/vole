@@ -67,7 +67,7 @@ cp .env.example .env
 | `READ_TIMEOUT` | `30s` | Max time to read the target page |
 | `CONNECT_TIMEOUT` | `15s` | Max time to establish a connection |
 | `MAX_BODY_SIZE` | `10485760` | Max HTML body size in bytes (10 MB) |
-| `USER_AGENT` | `vole/1.0` | User-Agent sent with requests |
+| `USER_AGENT` | `Go-http-client/1.1` | User-Agent sent with requests |
 
 
 Environment variables take precedence over `.env` values.

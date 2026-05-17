@@ -7,9 +7,14 @@ import (
 	"time"
 
 	"net/http"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file if it exists (does nothing if missing)
+	godotenv.Load()
+
 	listenAddr := getEnv("LISTEN_ADDR", ":9090")
 	readTimeout := getDurationEnv("READ_TIMEOUT", 30*time.Second)
 	connectTimeout := getDurationEnv("CONNECT_TIMEOUT", 15*time.Second)

@@ -1,4 +1,4 @@
-module vole
+module github.com/YoRHa-A5/vole
 
 go 1.26.3
 

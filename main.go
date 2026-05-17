@@ -19,7 +19,7 @@ func main() {
 	readTimeout := getDurationEnv("READ_TIMEOUT", 30*time.Second)
 	connectTimeout := getDurationEnv("CONNECT_TIMEOUT", 15*time.Second)
 	maxBodySize := getIntEnv("MAX_BODY_SIZE", 10*1024*1024) // 10 MB default
-	userAgent := getEnv("USER_AGENT", "vole/1.0")
+	userAgent := getEnv("USER_AGENT", "Go-http-client/1.1")
 
 	client := newExtractClient(connectTimeout, readTimeout, int64(maxBodySize), userAgent)
 	h := newHandler(client)

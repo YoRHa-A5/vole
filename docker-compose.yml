@@ -1,0 +1,14 @@
+services:
+  vole:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7007:7007"
+    environment:
+      - LISTEN_ADDR=:7007
+      - READ_TIMEOUT=30s
+      - CONNECT_TIMEOUT=15s
+      - MAX_BODY_SIZE=10485760
+      - USER_AGENT=Go-http-client/1.1
+    restart: unless-stopped

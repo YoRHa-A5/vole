@@ -1,6 +1,6 @@
 # Vole
 
-A stateless HTTP service that extracts clean Markdown from web pages — no headless browser, no Redis, no worker queues.
+A stateless HTTP service that extracts clean Markdown from web pages.
 
 ## API
 

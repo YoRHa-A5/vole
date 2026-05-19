@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // handler wraps the extractClient and provides HTTP endpoints.
@@ -46,6 +48,25 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleExtract processes extraction requests from both POST and GET.
 func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := &statusRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+	var reqURL string
+
+	defer func() {
+		duration := time.Since(start)
+		attrs := []any{
+			"method", r.Method,
+			"url", reqURL,
+			"status", rec.statusCode,
+			"duration_ms", duration.Milliseconds(),
+		}
+		if rec.statusCode >= 400 {
+			slog.Warn("extract", attrs...)
+		} else {
+			slog.Info("extract", attrs...)
+		}
+	}()
+
 	var req *extractRequest
 	var err error
 
@@ -53,34 +74,36 @@ func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		req, err = h.parsePostRequest(r)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "parse_error", err.Error())
+			writeError(rec, http.StatusBadRequest, "parse_error", err.Error())
 			return
 		}
 	case http.MethodGet:
 		req, err = h.parseGetRequest(r)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "parse_error", err.Error())
+			writeError(rec, http.StatusBadRequest, "parse_error", err.Error())
 			return
 		}
 	default:
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST and GET are allowed")
+		writeError(rec, http.StatusMethodNotAllowed, "method_not_allowed", "only POST and GET are allowed")
 		return
 	}
 
+	reqURL = req.URL
+
 	if req.URL == "" {
-		writeError(w, http.StatusBadRequest, "missing_url", "url is required")
+		writeError(rec, http.StatusBadRequest, "missing_url", "url is required")
 		return
 	}
 
 	// Validate URL scheme
 	if !isValidURLScheme(req.URL) {
-		writeError(w, http.StatusBadRequest, "invalid_url", "only http and https URLs are supported")
+		writeError(rec, http.StatusBadRequest, "invalid_url", "only http and https URLs are supported")
 		return
 	}
 
 	// Validate format
 	if req.Format != "" && req.Format != "markdown" {
-		writeError(w, http.StatusBadRequest, "unsupported_format", fmt.Sprintf("unsupported format: %s", req.Format))
+		writeError(rec, http.StatusBadRequest, "unsupported_format", fmt.Sprintf("unsupported format: %s", req.Format))
 		return
 	}
 
@@ -90,24 +113,24 @@ func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 
 		// Fetch failures → 502
 		if strings.Contains(detail, "fetch failed") {
-			writeError(w, http.StatusBadGateway, "fetch_failed", detail)
+			writeError(rec, http.StatusBadGateway, "fetch_failed", detail)
 			return
 		}
 
 		// HTML parse errors → 500
 		if strings.Contains(detail, "failed to parse") {
-			writeError(w, http.StatusInternalServerError, "parse_error", detail)
+			writeError(rec, http.StatusInternalServerError, "parse_error", detail)
 			return
 		}
 
 		// Everything else → 500
-		writeError(w, http.StatusInternalServerError, "parse_error", detail)
+		writeError(rec, http.StatusInternalServerError, "parse_error", detail)
 		return
 	}
 
 	switch r := result.(type) {
 	case *ExtractResult:
-		writeJSON(w, http.StatusOK, extractResponse{*r})
+		writeJSON(rec, http.StatusOK, extractResponse{*r})
 	case *ExtractError:
 		status := http.StatusInternalServerError
 		switch r.Error {
@@ -120,9 +143,9 @@ func (h *handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 				status = http.StatusBadGateway
 			}
 		}
-		writeError(w, status, r.Error, r.Detail)
+		writeError(rec, status, r.Error, r.Detail)
 	default:
-		writeError(w, http.StatusInternalServerError, "internal_error", "unknown response type")
+		writeError(rec, http.StatusInternalServerError, "internal_error", "unknown response type")
 	}
 }
 
@@ -174,4 +197,15 @@ func writeError(w http.ResponseWriter, status int, errorType, detail string) {
 			Detail: detail,
 		},
 	})
+}
+
+// statusRecorder wraps http.ResponseWriter to capture the status code.
+type statusRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rec *statusRecorder) WriteHeader(code int) {
+	rec.statusCode = code
+	rec.ResponseWriter.WriteHeader(code)
 }

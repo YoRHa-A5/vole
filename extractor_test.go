@@ -68,7 +68,7 @@ const TestHTMLBoilerplate = `<!DOCTYPE html>
 const TestHTMLPlain = "This is plain text content that should be returned as-is."
 
 func newTestClient() *extractClient {
-	return newExtractClient(5*time.Second, 10*time.Second, 10*1024*1024, "test/1.0", 300)
+	return newExtractClient(5*time.Second, 10*time.Second, 10*1024*1024, "test/1.0", 500)
 }
 
 func TestExtractHTMLArticle(t *testing.T) {

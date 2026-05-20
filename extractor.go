@@ -39,14 +39,15 @@ type ExtractError struct {
 
 // extractClient is the HTTP client used for fetching URLs.
 type extractClient struct {
-	httpClient  *http.Client
-	maxBodySize int64
-	userAgent   string
-	converter   *md.Converter
+	httpClient      *http.Client
+	maxBodySize     int64
+	userAgent       string
+	converter       *md.Converter
+	minContentLength int
 }
 
 // newExtractClient creates a new HTTP client with configured timeouts and a reusable markdown converter.
-func newExtractClient(connectTimeout, readTimeout time.Duration, maxBodySize int64, userAgent string) *extractClient {
+func newExtractClient(connectTimeout, readTimeout time.Duration, maxBodySize int64, userAgent string, minContentLength int) *extractClient {
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout: connectTimeout,
@@ -68,10 +69,11 @@ func newExtractClient(connectTimeout, readTimeout time.Duration, maxBodySize int
 	converter := md.NewConverter("", true, nil)
 	converter.Use(plugin.GitHubFlavored())
 	return &extractClient{
-		httpClient:  httpClient,
-		maxBodySize: maxBodySize,
-		userAgent:   userAgent,
-		converter:   converter,
+		httpClient:       httpClient,
+		maxBodySize:      maxBodySize,
+		userAgent:        userAgent,
+		converter:        converter,
+		minContentLength: minContentLength,
 	}
 }
 
@@ -148,7 +150,7 @@ func (c *extractClient) extractHTML(rawURL string, body io.Reader, statusCode in
 	article, err := readability.FromReader(bytes.NewReader(bodyBytes), parsedURL)
 	if err == nil && len(strings.TrimSpace(article.Content)) > 0 {
 		mdContent, convErr := c.convertToMarkdown(article.Content)
-		if convErr == nil && len(strings.TrimSpace(mdContent)) >= 50 {
+		if convErr == nil && len(strings.TrimSpace(mdContent)) >= c.minContentLength {
 			return &ExtractResult{
 				URL:              rawURL,
 				Title:            article.Title,
@@ -172,7 +174,7 @@ func (c *extractClient) extractHTML(rawURL string, body io.Reader, statusCode in
 	title := extractTitle(doc)
 	desc := metaDesc // prefer meta description over readability excerpt for raw fallback
 
-	if len(strings.TrimSpace(markdown)) == 0 {
+	if len(strings.TrimSpace(markdown)) < c.minContentLength {
 		return &ExtractResult{
 			URL:              rawURL,
 			Title:            title,
@@ -182,7 +184,7 @@ func (c *extractClient) extractHTML(rawURL string, body io.Reader, statusCode in
 			StatusCode:       statusCode,
 			ExtractionMethod: "raw",
 			Language:         lang,
-			Warning:          "no content extracted",
+			Warning:          "content_too_short",
 		}, nil
 	}
 

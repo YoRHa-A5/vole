@@ -68,7 +68,7 @@ const TestHTMLBoilerplate = `<!DOCTYPE html>
 const TestHTMLPlain = "This is plain text content that should be returned as-is."
 
 func newTestClient() *extractClient {
-	return newExtractClient(5*time.Second, 10*time.Second, 10*1024*1024, "test/1.0")
+	return newExtractClient(5*time.Second, 10*time.Second, 10*1024*1024, "test/1.0", 300)
 }
 
 func TestExtractHTMLArticle(t *testing.T) {
@@ -168,8 +168,8 @@ func TestExtractEmptyContent(t *testing.T) {
 		t.Fatalf("expected *ExtractResult, got %T", result)
 	}
 
-	if ex.Warning != "no content extracted" {
-		t.Errorf("expected warning 'no content extracted', got '%s'", ex.Warning)
+	if ex.Warning != "content_too_short" {
+		t.Errorf("expected warning 'content_too_short', got '%s'", ex.Warning)
 	}
 
 	if ex.ExtractionMethod != "raw" {
